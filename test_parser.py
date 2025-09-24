@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
-"""
-Test script for the African News Link Parser
-Creates mock HTML content to test the parsing functionality
-"""
+"""Unit tests for the African News Link Parser."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import List
+
+import pytest
+from bs4 import BeautifulSoup
 
 from link_parser import AfricanNewsParser
-import json
 
-def create_mock_html():
-    """Create mock HTML content for testing"""
-    mock_rfi_html = """
+
+@pytest.fixture(name="parser")
+def fixture_parser() -> AfricanNewsParser:
+    return AfricanNewsParser()
+
+
+@pytest.fixture(name="mock_rfi_html")
+def fixture_mock_rfi_html() -> str:
+    return """
     <html>
     <body>
         <div class="content">
@@ -24,8 +35,11 @@ def create_mock_html():
     </body>
     </html>
     """
-    
-    mock_france24_html = """
+
+
+@pytest.fixture(name="mock_france24_html")
+def fixture_mock_france24_html() -> str:
+    return """
     <html>
     <body>
         <div class="articles">
@@ -35,100 +49,67 @@ def create_mock_html():
             <a href="/fr/asie/20240204-chine-news">Chine : actualités asiatiques</a>
             <a href="/fr/afrique/20240205-afrique-ouest">Afrique de l'Ouest : coopération régionale</a>
             <a href="/fr/afrique/20240206-madagascar-environnement">Madagascar : protection de l'environnement</a>
+            <a href="/fr/afrique/20240201-cameroun-sport">Cameroun : football africain</a>
         </div>
     </body>
     </html>
     """
-    
-    return mock_rfi_html, mock_france24_html
 
-def test_african_content_detection():
-    """Test the African content detection functionality"""
-    parser = AfricanNewsParser()
-    
-    test_cases = [
-        ("Mali : nouvelles du Sahel", True),
-        ("Sénégal : élections présidentielles", True),
-        ("Nigeria : croissance économique", True),
-        ("France : actualités européennes", False),
-        ("Afrique de l'Ouest : coopération", True),
-        ("Maghreb : développement", True),
-        ("Congo RDC situation", True),
-        ("Europe actualités", False),
+
+def test_is_african_content(parser: AfricanNewsParser) -> None:
+    assert parser.is_african_content("Mali : nouvelles du Sahel") is True
+    assert parser.is_african_content("France : actualités européennes") is False
+    # URL keywords are also taken into account.
+    assert parser.is_african_content("Football", "https://example.com/fr/afrique/foot") is True
+
+
+def _extract_titles(articles: List[dict]) -> List[str]:
+    return [article["title"] for article in articles]
+
+
+def test_extract_articles_rfi(parser: AfricanNewsParser, mock_rfi_html: str) -> None:
+    soup = BeautifulSoup(mock_rfi_html, "html.parser")
+    articles = parser._extract_articles(
+        soup,
+        "https://www.rfi.fr/fr/afrique/",
+        "RFI",
+        lambda url: "/fr/afrique/" in url,
+    )
+
+    assert len(articles) == 6
+    assert "France : actualités européennes" not in _extract_titles(articles)
+    assert articles[0]["url"].startswith("https://www.rfi.fr/fr/afrique/")
+
+
+def test_extract_articles_france24(parser: AfricanNewsParser, mock_france24_html: str) -> None:
+    soup = BeautifulSoup(mock_france24_html, "html.parser")
+    articles = parser._extract_articles(
+        soup,
+        "https://www.france24.com/fr/afrique/",
+        "France24",
+        lambda url: "/afrique/" in url,
+    )
+
+    assert len(articles) == 5
+    # Duplicates are removed by URL.
+    assert _extract_titles(articles).count("Cameroun : football africain") == 1
+
+
+def test_save_to_json(tmp_path: Path, parser: AfricanNewsParser) -> None:
+    articles = [
+        {
+            "title": "Mali : nouvelles du Sahel",
+            "url": "https://www.rfi.fr/fr/afrique/20240101-mali-actualites",
+            "source": "RFI",
+        }
     ]
-    
-    print("Testing African content detection:")
-    for text, expected in test_cases:
-        result = parser.is_african_content(text)
-        status = "✓" if result == expected else "✗"
-        print(f"{status} '{text}' -> {result} (expected: {expected})")
+    output_file = tmp_path / "output.json"
 
-def test_parsing_logic():
-    """Test the parsing logic with mock HTML"""
-    from bs4 import BeautifulSoup
-    from urllib.parse import urljoin
-    
-    parser = AfricanNewsParser()
-    mock_rfi_html, mock_france24_html = create_mock_html()
-    
-    # Test RFI parsing logic
-    print("\nTesting RFI parsing logic:")
-    soup = BeautifulSoup(mock_rfi_html, 'html.parser')
-    base_url = "https://www.rfi.fr/fr/afrique/"
-    articles = []
-    
-    for link in soup.find_all('a', href=True):
-        href = link.get('href')
-        if not href:
-            continue
-        
-        full_url = urljoin(base_url, href)
-        link_text = link.get_text(strip=True)
-        
-        if (parser.is_african_content(link_text, full_url) and 
-            '/fr/afrique/' in full_url and 
-            len(link_text) > 10):
-            
-            articles.append({
-                'title': link_text,
-                'url': full_url,
-                'source': 'RFI'
-            })
-    
-    print(f"Found {len(articles)} RFI articles:")
-    for article in articles:
-        print(f"  - {article['title']}")
-    
-    # Test France24 parsing logic
-    print("\nTesting France24 parsing logic:")
-    soup = BeautifulSoup(mock_france24_html, 'html.parser')
-    base_url = "https://www.france24.com/fr/afrique/"
-    articles = []
-    
-    for link in soup.find_all('a', href=True):
-        href = link.get('href')
-        if not href:
-            continue
-        
-        full_url = urljoin(base_url, href)
-        link_text = link.get_text(strip=True)
-        
-        if (parser.is_african_content(link_text, full_url) and 
-            '/afrique/' in full_url and 
-            len(link_text) > 10):
-            
-            articles.append({
-                'title': link_text,
-                'url': full_url,
-                'source': 'France24'
-            })
-    
-    print(f"Found {len(articles)} France24 articles:")
-    for article in articles:
-        print(f"  - {article['title']}")
+    parser.save_to_json(articles, str(output_file))
+
+    assert output_file.exists()
+    assert json.loads(output_file.read_text(encoding="utf-8")) == articles
+
 
 if __name__ == "__main__":
-    print("=== African News Link Parser - Test Suite ===\n")
-    test_african_content_detection()
-    test_parsing_logic()
-    print("\n=== Test completed ===")
+    pytest.main([__file__])
