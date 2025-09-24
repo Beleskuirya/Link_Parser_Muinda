@@ -1,70 +1,48 @@
 # Link_Parser_Muinda
 
-A Python script that scrapes journal pages such as RFI or France24, and returns the links of African news articles.
+Un script Python qui récupère les articles africains les plus récents sur des sites
+comme RFI et France24, puis exporte les liens dans un fichier JSON exploitable
+(par exemple pour ensuite alimenter Google Sheets).
 
-## Features
+## Fonctionnalités
 
-- Scrapes African news articles from RFI (Radio France Internationale) and France24
-- Intelligent content detection using African country names and regional keywords
-- Supports both French and English content
-- Outputs results in JSON format
-- Command-line interface with flexible options
-- Duplicate removal and URL normalization
+- Scrapping d'articles africains sur RFI (Radio France Internationale) et France24
+- Détection intelligente du contenu via des mots-clés de pays et de régions
+- Suppression des doublons et normalisation des URL
+- Interface en ligne de commande (`python -m link_parser`)
+- Export JSON prêt à l'emploi
 
-## Installation
+## Prérequis
 
-1. Clone this repository:
+- Python 3.8 ou plus récent
+- `pip` et `virtualenv` disponibles sur la machine
+
+## Installation rapide
+
 ```bash
-git clone https://github.com/Beleskuirya/Link_Parser_Muinda.git
-cd Link_Parser_Muinda
+python3 -m venv .venv
+source .venv/bin/activate  # Sous Windows : .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-2. Install the required dependencies:
+## Lancer le script
+
+Une fois l'environnement virtuel actif, deux possibilités :
+
 ```bash
-pip3 install -r requirements.txt
+# Option 1 : via le module directement
+python -m link_parser --site all --output african_news_links.json
+
+# Option 2 : via le script de confort
+./scripts/run_parser.sh --site france24 --verbose
 ```
 
-## Usage
+Le paramètre `--site` accepte `rfi`, `france24` ou `all`. Utilisez `--output` pour
+changer le nom du fichier généré et `--verbose` pour des logs détaillés.
 
-### Basic Usage
+## Sortie JSON
 
-Scrape all sites (RFI and France24):
-```bash
-python3 link_parser.py
-```
-
-### Advanced Options
-
-Scrape only RFI:
-```bash
-python3 link_parser.py --site rfi
-```
-
-Scrape only France24:
-```bash
-python3 link_parser.py --site france24
-```
-
-Save to a custom file:
-```bash
-python3 link_parser.py --output my_african_news.json
-```
-
-Enable verbose logging:
-```bash
-python3 link_parser.py --verbose
-```
-
-### Command Line Options
-
-- `--output`, `-o`: Output JSON file (default: african_news_links.json)
-- `--site`: Which site to scrape - options: rfi, france24, all (default: all)
-- `--verbose`, `-v`: Enable verbose output
-- `--help`, `-h`: Show help message
-
-## Output Format
-
-The script generates a JSON file containing an array of article objects with the following structure:
+Le fichier produit contient un tableau d'objets `{title, url, source}` :
 
 ```json
 [
@@ -74,38 +52,27 @@ The script generates a JSON file containing an array of article objects with the
     "source": "RFI"
   },
   {
-    "title": "Sénégal : élections présidentielles", 
-    "url": "https://www.rfi.fr/fr/afrique/20240102-senegal-politique",
-    "source": "RFI"
+    "title": "Cameroun : football africain",
+    "url": "https://www.france24.com/fr/afrique/20240201-cameroun-sport",
+    "source": "France24"
   }
 ]
 ```
 
-## African Content Detection
+## Tests automatisés
 
-The script identifies African news articles using:
+Des tests (basés sur du HTML fictif) valident la détection du contenu africain,
+la suppression des doublons et l'enregistrement JSON.
 
-- **Country names**: Algeria, Angola, Benin, Botswana, Burkina Faso, Burundi, Cameroon, Cape Verde, Central African Republic, Chad, Comoros, Congo, Djibouti, Egypt, Eritrea, Ethiopia, Gabon, Gambia, Ghana, Guinea, Kenya, Lesotho, Liberia, Libya, Madagascar, Malawi, Mali, Morocco, Mauritius, Mauritania, Mozambique, Namibia, Niger, Nigeria, Uganda, Rwanda, Senegal, Seychelles, Sierra Leone, Somalia, Sudan, Tanzania, Togo, Tunisia, Zambia, Zimbabwe, Côte d'Ivoire
-
-- **Regional terms**: Maghreb, Sahel, West Africa, Central Africa, East Africa, Southern Africa, Horn of Africa
-
-- **URL patterns**: Articles containing `/afrique/` or `/africa/` in their URLs
-
-## Testing
-
-Run the test suite to verify the parsing logic:
 ```bash
-python3 test_parser.py
+source .venv/bin/activate
+pip install -r requirements-dev.txt  # installe pytest
+pytest
 ```
 
-## Requirements
+## Aller plus loin
 
-- Python 3.6+
-- requests >= 2.31.0
-- beautifulsoup4 >= 4.12.0
-- lxml >= 4.9.0
-- urllib3 >= 2.0.0
-
-## License
-
-This project is open source and available under the MIT License.
+- Planifier l'exécution avec `cron`, GitHub Actions ou tout autre orchestrateur.
+- Étendre la liste des sites à analyser en ajoutant de nouvelles méthodes
+  similaires à `scrape_rfi_links` ou `scrape_france24_links`.
+- Remplacer la sortie JSON par une intégration directe Google Sheets.
